@@ -3,21 +3,11 @@ public class ProcessState {
 	private boolean canStartRound;
 	private Status status;
 	private int pid;
-	private int phase;
 
 	public ProcessState(int pid) {
 		this.canStartRound = false;
 		this.status = Status.UNKNOWN;
 		this.pid = pid;
-		this.phase = 0;
-	}
-	
-	public int getPhase() {
-		return phase;
-	}
-
-	public void setPhase(int phase) {
-		this.phase = phase;
 	}
 
 	public int getPid() {
