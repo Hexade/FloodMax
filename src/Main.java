@@ -5,7 +5,6 @@ import java.io.FileReader;
 import java.io.IOException;
 
 public class Main {
-	public static ProcessState[] processStates;
 	
 	public static void main(String[] args) {
 		
@@ -39,10 +38,18 @@ public class Main {
 		}
 
 		// start n threads
-		Runnable[] processes = new HS_Algorithm[n];
+		Runnable[] processes = new Process[n];
 		for (int i = 0; i < processes.length; i++) {
-			processes[i] = new HS_Algorithm(ids[i]);
+			processes[i] = new Process(ids[i]);
 		}
+		for (int i = 0; i < processes.length; i++) {
+			Process p = (Process) processes[i];
+			Process left = (Process) processes[(i+n-1)%n];
+			Process right = (Process) processes[(i+1)%n];
+			p.setLeftProcess(left);
+			p.setRightProcess(right);
+		}
+		
 		Thread[] threads = new Thread[n];
 		for (int i = 0; i < threads.length; i++) {
 			threads[i] = new Thread(processes[i]);
@@ -63,10 +70,30 @@ public class Main {
 				break;
 			
 			// Ask processes to start their rounds
-			System.out.println("Starting round");
 			for (Runnable p : processes) {
-				HS_Algorithm proc = (HS_Algorithm)p;
-				proc.getP_state().setCanStartRound(true);
+				Process proc = (Process)p;
+				proc.setCanStartRound(true);
+			}			
+
+			// Wait for all processes to read their current buffer values
+			boolean isAnyProcessStillReading;
+			while (true) {
+				isAnyProcessStillReading = false;
+				for (Runnable p : processes) {
+					Process proc = (Process)p;
+					if (!proc.isReadingComplete()) {
+						isAnyProcessStillReading = true;
+						break;
+					}
+				}
+				// marks the end of corresponding round in all processes
+				if (!isAnyProcessStillReading)
+					break;
+			}
+			
+			for (Runnable p : processes) {
+				Process proc = (Process)p;
+				proc.setCanStartRound(true);
 			}
 			
 			// Wait for all processes to complete the round
@@ -74,8 +101,8 @@ public class Main {
 			while (true) {
 				isAnyRoundActive = false;
 				for (Runnable p : processes) {
-					HS_Algorithm proc = (HS_Algorithm)p;
-					if (proc.getP_state().isCanStartRound()) {
+					Process proc = (Process)p;
+					if (proc.isCanStartRound()) {
 						isAnyRoundActive = true;
 						break;
 					}
@@ -84,8 +111,8 @@ public class Main {
 				if (!isAnyRoundActive)
 					break;
 			}
-
-			System.out.println("Round completed");
+			
+			//System.out.println();
 		}
 	}
 }
