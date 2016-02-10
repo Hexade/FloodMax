@@ -111,8 +111,6 @@ public class Main {
 				if (!isAnyRoundActive)
 					break;
 			}
-			
-			//System.out.println();
 		}
 	}
 }

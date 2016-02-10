@@ -1,6 +1,6 @@
 
 public class ProcessState {
-	private boolean canStartRound;
+	private volatile boolean canStartRound;
 	private Status status;
 	private int pid;
 
