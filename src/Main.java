@@ -66,8 +66,10 @@ public class Main {
 				}
 			}
 			// finish computation if all threads have terminated
-			if (!isAnyThreadRunning)
+			if (!isAnyThreadRunning) {
+				System.out.println("[Main]: Leader election completed!");
 				break;
+			}
 			
 			// Ask processes to start their rounds
 			for (Runnable p : processes) {
