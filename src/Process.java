@@ -1,12 +1,11 @@
 
 public class Process implements Runnable {
-	public static boolean LeaderFound = false;
 	private ProcessState p_state;
 	private Message msgFromLeft, msgFromRight;
 	private Process leftProcess, rightProcess;
 	private int round;
 	private int phase;
-	private boolean isReadingComplete;
+	private volatile boolean isReadingComplete;
 
 	public Process(int pid) {
 		this.p_state = new ProcessState(pid);
