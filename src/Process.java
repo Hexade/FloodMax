@@ -13,14 +13,12 @@ public class Process implements Runnable {
 	private Process leftProcess, rightProcess;
 	private int round;
 	private int phase;
-	private volatile boolean isReadingComplete;
 
 	public Process(int pid) {
 		this.p_state = new ProcessState(pid);
 		this.msgFromLeft = null;
 		this.msgFromRight = null;
 		this.round = 1;
-		this.isReadingComplete = false;
 	}
 
 	public void setLeftPort(Message leftPort) {
@@ -47,10 +45,6 @@ public class Process implements Runnable {
 		p_state.setCanStartRound(canStartRound);
 	}
 
-	public boolean isReadingComplete() {
-		return isReadingComplete;
-	}
-
 	@Override
 	public void run() {
 		while (true) {
@@ -65,12 +59,10 @@ public class Process implements Runnable {
 				}
 			}
 
-			isReadingComplete = false;
 			Message msgleftLocal = msgFromLeft;
 			Message msgRightLocal = msgFromRight;
 			msgFromLeft = null; // clear all buffers
 			msgFromRight = null; // clear all buffers
-			isReadingComplete = true;
 		    p_state.setCanStartRound(false);
 		    
 			// Wait for all threads to read their current buffer values
@@ -81,13 +73,6 @@ public class Process implements Runnable {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-			}
-			
-			try {
-				Thread.sleep(100);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
 			}
 			
 			if (round == 1) {
