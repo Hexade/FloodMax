@@ -95,7 +95,7 @@ public class Process implements Runnable {
 								== msgleftLocal.getType()) {
 							p_state.setStatus(Status.NON_LEADER);
 
-							/*System.out.println("[Prcoess Info: "  + 
+							/*System.out.println("[Process Info: "  + 
 									p_state.getPid() + "]: I am not a Leader");*/
 							sendRight(msgleftLocal);
 							setCanStartRound(false);
@@ -115,14 +115,14 @@ public class Process implements Runnable {
 							} else if (msgleftLocal.getPid() == p_state.getPid()) {
 								p_state.setStatus(Status.LEADER);
 								System.out.println();
-								System.out.println("[Prcoess Info: "  + 
+								System.out.println("[Process Info: "  + 
 										p_state.getPid() + "]: I am the LEADER!!!");
 								System.out.println();
 								sendLeft(new Message(p_state.getPid(), 
 										MessageType.LEADER_ANNOUNCEMENT, -1));
 								sendRight(new Message(p_state.getPid(), 
 										MessageType.LEADER_ANNOUNCEMENT, -1));
-								System.out.println("[Prcoess Info: "  + 
+								System.out.println("[Process Info: "  + 
 										p_state.getPid() + "]: Announcing that I am the leader." +
 										" All the processes will terminate in sometime.");
 								setCanStartRound(false);
@@ -142,7 +142,7 @@ public class Process implements Runnable {
 						if (MessageType.LEADER_ANNOUNCEMENT 
 								== msgRightLocal.getType()) {
 							p_state.setStatus(Status.NON_LEADER);
-							/*System.out.println("[Prcoess Info: "  + 
+							/*System.out.println("[Process Info: "  + 
 									p_state.getPid() + "]: I am not a Leader");*/
 							sendLeft(msgRightLocal);
 							setCanStartRound(false);
@@ -162,11 +162,11 @@ public class Process implements Runnable {
 							} else if (msgRightLocal.getPid() == p_state.getPid()) {
 								p_state.setStatus(Status.LEADER);
 								System.out.println();
-								System.out.println("[Prcoess Info: "  + 
+								System.out.println("[Process Info: "  + 
 										p_state.getPid() + "]: I am the LEADER!!!");
 								System.out.println();
 								
-								System.out.println("[Prcoess Info: "  + 
+								System.out.println("[Process Info: "  + 
 										p_state.getPid() + "]: Announcing that I am the leader." +
 										" All the processes will terminate in sometime.");
 								sendLeft(new Message(p_state.getPid(), 
@@ -197,7 +197,7 @@ public class Process implements Runnable {
 		// send explore message if round = 1 and 
 		// still a contender for leader
 		if (Status.UNKNOWN == p_state.getStatus()) {
-			System.out.println("[Prcoess Info: "
+			System.out.println("[Process Info: "
 					+ p_state.getPid() + "]: Starting phase " + phase);
 			sendLeft(new Message(p_state.getPid(), MessageType.OUT, 
 					(int) Math.pow(2.0, phase)));
