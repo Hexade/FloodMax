@@ -92,7 +92,7 @@ public class Main {
 				isAnyProcessStillReading = false;
 				for (Runnable p : processes) {
 					Process proc = (Process)p;
-					if (!proc.isReadingComplete()) {
+					if (proc.isCanStartRound()) {
 						isAnyProcessStillReading = true;
 						break;
 					}
