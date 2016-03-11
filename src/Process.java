@@ -6,47 +6,56 @@
  * 
  * */
 
+import java.util.ArrayList;
+import java.util.concurrent.ThreadLocalRandom;
 
+/*
+ * Simulates a distributed node
+ */
 public class Process implements Runnable {
-	private ProcessState p_state;
-	private Message msgFromLeft, msgFromRight;
-	private Process leftProcess, rightProcess;
-	private int round;
-	private int phase;
+
+	private static final int DELAY_MIN = 1;
+	private static final int DELAY_MAX = 20;
+	private volatile boolean canStartRound;
+	private Status status;
+	private int pid;
+	private int currentRound;
+	private volatile boolean terminated;
+
+	private ArrayList<Channel> channels;
 
 	public Process(int pid) {
-		this.p_state = new ProcessState(pid);
-		this.msgFromLeft = null;
-		this.msgFromRight = null;
-		this.round = 1;
+		this.canStartRound = false;
+		this.status = Status.UNKNOWN;
+		this.pid = pid;		
+		this.currentRound = 1;
+		this.channels = new ArrayList<Channel>();
+		this.terminated = false;
+	}
+	
+	public int getPid() {
+		return pid;
 	}
 
-	public void setLeftPort(Message leftPort) {
-		this.msgFromLeft = leftPort;
+	public boolean isTerminated() {
+		return terminated;
 	}
 
-	public void setRightPort(Message rightPort) {
-		this.msgFromRight = rightPort;
-	}
-
-	public void setLeftProcess(Process leftProcess) {
-		this.leftProcess = leftProcess;
-	}
-
-	public void setRightProcess(Process rightProcess) {
-		this.rightProcess = rightProcess;
+	public void addNeighbor(Process proc) {
+		channels.add(new Channel(proc));
 	}
 
 	public boolean isCanStartRound() {
-		return p_state.isCanStartRound();
+		return this.canStartRound;
 	}
 
 	public void setCanStartRound(boolean canStartRound) {
-		p_state.setCanStartRound(canStartRound);
+		this.canStartRound = canStartRound;
 	}
 
 	@Override
 	public void run() {
+
 		while (true) {
 			
 			// wait for confirmation from master
@@ -54,170 +63,111 @@ public class Process implements Runnable {
 				try {
 					Thread.sleep(10);
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
 
-			Message msgleftLocal = msgFromLeft;
-			Message msgRightLocal = msgFromRight;
-			msgFromLeft = null; // clear all buffers
-			msgFromRight = null; // clear all buffers
-		    p_state.setCanStartRound(false);
-		    
+			// incoming messages delivered in the current round
+			ArrayList<Message> deliveredMessages = new ArrayList<Message>();
+			for (Channel channel : channels) {
+				deliveredMessages.addAll(channel.read(currentRound));
+			}
+
+			//TODO: remove
+			for (Message message : deliveredMessages) {
+				//TODO: remove
+				System.out.println("READ: [" + this.pid + " (" + currentRound + ")]" +
+						"-> From: " + message.getPid() +
+						", Time stamp: " + message.getTimeStamp());
+			}
+			
+		    setCanStartRound(false);		    
+		    		    
 			// Wait for all threads to read their current buffer values
 			while (!isCanStartRound()) {
 				try {
 					Thread.sleep(10);
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
+			// TODO: generate new message only in round 1
+			broadcast(new Message(this.pid, MessageType.EXPLORE, 0));
 			
-			if (round == 1) {
-				sendExploreMessages();
-			} else {				
-				// process IN messages which are my own tokens
-				if (msgleftLocal != null && msgRightLocal != null
-						&& MessageType.IN == msgleftLocal.getType()
-						&& MessageType.IN == msgRightLocal.getType()
-						&& msgleftLocal.getPid() == p_state.getPid()
-						&& msgRightLocal.getPid() == p_state.getPid()) {
-					phase++;
-					sendExploreMessages();
-				}
-				else {
-					
-					if (msgleftLocal != null) {
-						// process LEADER_ANNOUNCEMENT message
-						if (MessageType.LEADER_ANNOUNCEMENT 
-								== msgleftLocal.getType()) {
-							p_state.setStatus(Status.NON_LEADER);
-
-							/*System.out.println("[Process Info: "  + 
-									p_state.getPid() + "]: I am not a Leader");*/
-							sendRight(msgleftLocal);
-							setCanStartRound(false);
-							break;
-						}
-						
-						// process OUT message from left neighbor
-						if (MessageType.OUT == msgleftLocal.getType()) {
-							if (msgleftLocal.getPid() > p_state.getPid()) {
-								if (msgleftLocal.getHops() > 1) {
-									msgleftLocal.decrementHops();
-									sendRight(msgleftLocal);
-								} else if (msgleftLocal.getHops() == 1) {
-									msgleftLocal.setType(MessageType.IN);
-									sendLeft(msgleftLocal);
-								}
-							} else if (msgleftLocal.getPid() == p_state.getPid()) {
-								p_state.setStatus(Status.LEADER);
-								System.out.println();
-								System.out.println("[Process Info: "  + 
-										p_state.getPid() + "]: I am the LEADER!!!");
-								System.out.println();
-								sendLeft(new Message(p_state.getPid(), 
-										MessageType.LEADER_ANNOUNCEMENT, -1));
-								sendRight(new Message(p_state.getPid(), 
-										MessageType.LEADER_ANNOUNCEMENT, -1));
-								System.out.println("[Process Info: "  + 
-										p_state.getPid() + "]: Announcing that I am the leader." +
-										" All the processes will terminate in sometime.");
-								setCanStartRound(false);
-								break;
-							}
-						}
-						// process IN message from left neighbor
-						else {
-							if (msgleftLocal.getPid() != p_state.getPid()) {
-								sendRight(msgleftLocal);
-							}
-						}
-					}
-					
-					if (msgRightLocal != null) {
-						// process LEADER_ANNOUNCEMENT message
-						if (MessageType.LEADER_ANNOUNCEMENT 
-								== msgRightLocal.getType()) {
-							p_state.setStatus(Status.NON_LEADER);
-							/*System.out.println("[Process Info: "  + 
-									p_state.getPid() + "]: I am not a Leader");*/
-							sendLeft(msgRightLocal);
-							setCanStartRound(false);
-							break;
-						}
-						
-						// process OUT message from right neighbor
-						if (MessageType.OUT == msgRightLocal.getType()) {
-							if (msgRightLocal.getPid() > p_state.getPid()) {
-								if (msgRightLocal.getHops() > 1) {
-									msgRightLocal.decrementHops();
-									sendLeft(msgRightLocal);
-								} else if (msgRightLocal.getHops() == 1) {
-									msgRightLocal.setType(MessageType.IN);
-									sendRight(msgRightLocal);
-								}
-							} else if (msgRightLocal.getPid() == p_state.getPid()) {
-								p_state.setStatus(Status.LEADER);
-								System.out.println();
-								System.out.println("[Process Info: "  + 
-										p_state.getPid() + "]: I am the LEADER!!!");
-								System.out.println();
-								
-								System.out.println("[Process Info: "  + 
-										p_state.getPid() + "]: Announcing that I am the leader." +
-										" All the processes will terminate in sometime.");
-								sendLeft(new Message(p_state.getPid(), 
-										MessageType.LEADER_ANNOUNCEMENT, -1));
-								sendRight(new Message(p_state.getPid(), 
-										MessageType.LEADER_ANNOUNCEMENT, -1));
-								setCanStartRound(false);
-								break;
-							}
-						}					
-						// process IN message from right neighbor
-						else {
-							if (msgRightLocal.getPid() != p_state.getPid()) {
-								sendLeft(msgRightLocal);
-							}
-						}
-					}
-				}
-			}
-			round++;
+			//------------------------------------------------------------------------
+			
+			/*
+			 * Floodmax algorithm should be implemented here
+			 * Current round incoming messages are available in 'deliveredMessages'
+			 * To send a message, please use one of the methods defined below
+			 * 
+			 * NOTE: Address TODOs if applicable
+			 */
+			
+			  
+			//------------------------------------------------------------------------	
+			
+			currentRound++;
+			
+			// TODO: This is a work around for termination
+			// TODO: Must be removed once the termination logic is in place
+			if (currentRound == 10) {
+				this.terminated = true;
+				break;
+			} 
 			
 			// notify master that current round has ended
 			setCanStartRound(false);
 		}
 	}
-
-	private void sendExploreMessages() {
-		// send explore message if round = 1 and 
-		// still a contender for leader
-		if (Status.UNKNOWN == p_state.getStatus()) {
-			System.out.println("[Process Info: "
-					+ p_state.getPid() + "]: Starting phase " + phase);
-			sendLeft(new Message(p_state.getPid(), MessageType.OUT, 
-					(int) Math.pow(2.0, phase)));
-			sendRight(new Message(p_state.getPid(), MessageType.OUT, 
-					(int) Math.pow(2.0, phase)));
+	
+	/*
+	 * Broadcasts a message to all neighbors 
+	 */
+	private void broadcast(Message message) {
+		for (Channel channel : channels) {
+			sendMessage(channel.getProcess(), message);
 		}
 	}
 
-	private void sendRight(Message message) {
-		this.rightProcess.setLeftPort(message);
-		/*System.out.println("[Message: " + message.getType().toString() + "] : " +
-				"Origin: " + message.getPid() + "; " +
-				p_state.getPid() +" -> " + rightProcess.p_state.getPid());*/
+	/*
+	 * Sends a message to specified neighboring process
+	 */
+	private void sendMessage(Process toProcess, Message message) {
+		int rand_delay = ThreadLocalRandom.current().nextInt(DELAY_MIN, DELAY_MAX);
+		int timeStamp = currentRound + rand_delay;
+		// set new delay
+		message.setTimeStamp(timeStamp);
+		//TODO: remove
+		System.out.println("SEND: [" + this.pid + " (" + currentRound + ")]" +
+				"-> To: " + toProcess.getPid() +
+				", Time stamp: " + message.getTimeStamp());
+		toProcess.putMessage(message);
 	}
 
-	private void sendLeft(Message message) {
-		this.leftProcess.setRightPort(message);
-		/*System.out.println("[Message: " + message.getType().toString() + "]: " +
-				"Origin: " + message.getPid() + "; " +
-				p_state.getPid() +" -> " + leftProcess.p_state.getPid());*/
+	/*
+	 * Sends to message to specified process id
+	 */
+	@SuppressWarnings("unused")
+	private void sendMessage(int toPid, Message message) {
+		sendMessage(getChannel(toPid).getProcess(), message);
 	}
 
+	/*
+	 * Gets channel based on process id
+	 */
+	private Channel getChannel(int toPid) {
+		for (Channel ch: channels) {
+			if (toPid == ch.getProcess().getPid())
+				return ch;
+		}
+		return null;
+	}
+	
+	/*
+	 * Puts the message in Channel buffer
+	 */
+	public void putMessage(Message message) {
+		getChannel(message.getPid()).add(message);
+	}
 }

@@ -10,20 +10,20 @@
 public class Message {
 	private int pid;
 	private MessageType type;
-	private int hops;
+	private int timeStamp;
 	
-	public Message(int pid, MessageType type, int hops) {
+	public Message(int pid, MessageType type, int timeStamp) {
 		this.pid = pid;
 		this.type = type;
-		this.hops = hops;
+		this.timeStamp = timeStamp;
 	}
 
-	public int getHops() {
-		return hops;
+	public int getTimeStamp() {
+		return timeStamp;
 	}
-
-	public void decrementHops() {
-		this.hops--;
+	
+	public void setTimeStamp(int timeStamp) {
+		this.timeStamp = timeStamp;
 	}
 
 	public int getPid() {
