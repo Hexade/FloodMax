@@ -12,6 +12,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 
 public class Main {
 	
@@ -44,21 +46,60 @@ public class Main {
 		int[] ids = new int[n];
 		for (int i=0; i< n; i++) {
 			ids[i] = Integer.parseInt(id_array_str[i]);
+		}		
+		
+		// hard coded test values
+		n = 10;
+		
+		// random ids
+		ArrayList<Integer> list = new ArrayList<Integer>();
+		for (int i = 1; i < 1000; i++) {
+			list.add(i);
+		}
+		//Collections.shuffle(list);
+		
+		for (int i=0; i < n; i++) {
+			ids[i] = list.get(i);
+		}
+		
+		// random adjacency matrix
+		int[][] matrix = new int[n][n];
+		ArrayList<Integer> zeroOnes = new ArrayList<Integer>(n*n);
+		for (int i =0; i < (n*n)/2; ++i)
+			zeroOnes.add(0);
+		for (int i =(n*n)/2; i < (n*n); ++i)
+			zeroOnes.add(1);
+		Collections.shuffle(zeroOnes);
+		
+		int index = 0;
+		for (int i = 0; i < n; i++) {
+			for (int j = i; j < n; j++) {
+				matrix[i][j] = matrix[j][i] = zeroOnes.get(index++); 
+			}
+			matrix[i][i] = 0;
 		}
 
-		// start n threads
+		for (int i = 0; i < n; i++) {
+			for (int j = 0; j < n; j++) {
+				System.out.print(matrix[i][j]);
+			}
+			System.out.println();
+		}
+
+		// Initialize n processes		
 		Runnable[] processes = new Process[n];
 		for (int i = 0; i < processes.length; i++) {
 			processes[i] = new Process(ids[i]);
 		}
 		for (int i = 0; i < processes.length; i++) {
 			Process p = (Process) processes[i];
-			Process left = (Process) processes[(i+n-1)%n];
-			Process right = (Process) processes[(i+1)%n];
-			p.setLeftProcess(left);
-			p.setRightProcess(right);
+			for (int j = 0; j < processes.length; j++) {
+				if (matrix[i][j] == 1)
+					p.addNeighbor((Process)processes[j]);
+			}
 		}
-		
+
+		// Start n threads
 		Thread[] threads = new Thread[n];
 		for (int i = 0; i < threads.length; i++) {
 			threads[i] = new Thread(processes[i]);
@@ -92,7 +133,7 @@ public class Main {
 				isAnyProcessStillReading = false;
 				for (Runnable p : processes) {
 					Process proc = (Process)p;
-					if (proc.isCanStartRound()) {
+					if (proc.isCanStartRound() && !proc.isTerminated()) {
 						isAnyProcessStillReading = true;
 						break;
 					}
@@ -113,7 +154,7 @@ public class Main {
 				isAnyRoundActive = false;
 				for (Runnable p : processes) {
 					Process proc = (Process)p;
-					if (proc.isCanStartRound()) {
+					if (proc.isCanStartRound() && !proc.isTerminated()) {
 						isAnyRoundActive = true;
 						break;
 					}
@@ -123,5 +164,6 @@ public class Main {
 					break;
 			}
 		}
+		
 	}
 }

@@ -8,5 +8,5 @@
 
 
 public enum MessageType {
-	OUT, IN, LEADER_ANNOUNCEMENT
+	EXPLORE, ACK, LEADER_ANNOUNCEMENT
 }
