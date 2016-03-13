@@ -15,22 +15,30 @@ import java.util.concurrent.ThreadLocalRandom;
 public class Process implements Runnable {
 
 	private static final int DELAY_MIN = 1;
-	private static final int DELAY_MAX = 20;
+	private static final int DELAY_MAX = 5;
 	private volatile boolean canStartRound;
 	private Status status;
 	private int pid;
 	private int currentRound;
 	private volatile boolean terminated;
-
 	private ArrayList<Channel> channels;
-
+	
+	private Process parent;
+	private int max_seen_so_far;
+	private int pendingAcks;
+	private boolean leaderElected = false;
+	private boolean newinfo = true;
+	private boolean ackReturned = false;
+	
 	public Process(int pid) {
 		this.canStartRound = false;
 		this.status = Status.UNKNOWN;
-		this.pid = pid;		
+		this.pid = pid;	
 		this.currentRound = 1;
 		this.channels = new ArrayList<Channel>();
 		this.terminated = false;
+		this.parent = null;
+		this.max_seen_so_far = pid;
 	}
 	
 	public int getPid() {
@@ -57,7 +65,8 @@ public class Process implements Runnable {
 	public void run() {
 
 		while (true) {
-			
+			String debugMessage = this.pid +" : "+ currentRound;
+			System.out.println(debugMessage);
 			// wait for confirmation from master
 			while (!isCanStartRound()) {
 				try {
@@ -66,33 +75,7 @@ public class Process implements Runnable {
 					e.printStackTrace();
 				}
 			}
-
-			// incoming messages delivered in the current round
-			ArrayList<Message> deliveredMessages = new ArrayList<Message>();
-			for (Channel channel : channels) {
-				deliveredMessages.addAll(channel.read(currentRound));
-			}
-
-			//TODO: remove
-			for (Message message : deliveredMessages) {
-				//TODO: remove
-				System.out.println("READ: [" + this.pid + " (" + currentRound + ")]" +
-						"-> From: " + message.getPid() +
-						", Time stamp: " + message.getTimeStamp());
-			}
 			
-		    setCanStartRound(false);		    
-		    		    
-			// Wait for all threads to read their current buffer values
-			while (!isCanStartRound()) {
-				try {
-					Thread.sleep(10);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-			}
-			// TODO: generate new message only in round 1
-			broadcast(new Message(this.pid, MessageType.EXPLORE, 0));
 			
 			//------------------------------------------------------------------------
 			
@@ -103,18 +86,105 @@ public class Process implements Runnable {
 			 * 
 			 * NOTE: Address TODOs if applicable
 			 */
+			newinfo = false;
+			if(currentRound == 1) {
+				Message message = new Message(this.pid, this.pid, 0, MessageType.EXPLORE, 0);
+				pendingAcks = channels.size();
+				newinfo = true;
+				broadcast(message);
+			} else {
+				ArrayList<Message> deliveredMessages = new ArrayList<Message>();
+				for (Channel channel : channels) {
+					deliveredMessages.addAll(channel.read(currentRound));
+				}
+				
+				for (Message _message : deliveredMessages) {
+					if(_message.getType().equals(MessageType.LEADER_ANNOUNCEMENT)) {
+						this.status = Status.NON_LEADER;
+						this.parent = getChannel(_message.getSenderId()).getProcess();
+						broadcast(_message);
+						leaderElected = true;
+					}			
+				}
+				
+				if(!leaderElected) {
+					for (Message _message : deliveredMessages) {
+						//TODO: remove
+						if(_message.getType().equals(MessageType.EXPLORE)) {
+							if(_message.getMessage() > this.max_seen_so_far) {
+								this.newinfo = true;
+								this.max_seen_so_far = _message.getMessage();
+								this.parent = getChannel(_message.getSenderId()).getProcess();
+								this.ackReturned = false;
+							} 
+						}
+					}
+
+					if (newinfo) {
+						Message message = new Message(this.max_seen_so_far, this.pid,
+														this.parent.getPid(), MessageType.EXPLORE, 0);
+						this.pendingAcks = channels.size();
+						broadcast(message);
+					}
+
+					for (Message _message : deliveredMessages) {
+						
+						if(_message.getType().equals(MessageType.EXPLORE) 
+								&& _message.getMessage() <= this.max_seen_so_far) {
+							
+							Message reject_message = new Message(this.max_seen_so_far, this.pid,
+										_message.getLatestExploreSenderParentId(), MessageType.REJECT, 0);
+							sendMessage(getChannel(_message.getSenderId()).getProcess(), reject_message);
+						}
+						
+						if(_message.getType().equals(MessageType.REJECT)
+								|| _message.getType().equals(MessageType.ACK)) {
+							if(this.parent != null && this.parent.getPid() == _message.getLatestExploreSenderParentId()) {
+								this.pendingAcks--;
+							} else if (this.parent == null && _message.getLatestExploreSenderParentId() == 0){
+								this.pendingAcks--;
+							}
+
+							if  (!ackReturned && pendingAcks == 0 
+									&& status.equals(Status.UNKNOWN) && this.parent !=null) {				
+								
+								Message ack_message = new Message(this.max_seen_so_far, this.pid,
+															this.parent.getPid(), MessageType.ACK, 0);
+								sendMessage(this.parent, ack_message);
+								this.ackReturned = true;
+							}
+						}
+					}
+
+					if (pendingAcks == 0 && this.parent == null && this.status.equals(Status.UNKNOWN)) {
+						this.status = Status.LEADER;
+						Message announcement = new Message(this.max_seen_so_far, this.pid, 0, MessageType.LEADER_ANNOUNCEMENT, 0);
+						System.out.println(this.pid+"---> I am the Leader ");
+						broadcast(announcement);
+						leaderElected = true;
+					}
+				}
+				// Wait for all threads to read their current buffer values				
+			    setCanStartRound(false);		    		    		    
+				
+			}
 			
-			  
+			while (!isCanStartRound()) {
+				try {
+					Thread.sleep(10);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}		
+			 
 			//------------------------------------------------------------------------	
 			
 			currentRound++;
 			
-			// TODO: This is a work around for termination
-			// TODO: Must be removed once the termination logic is in place
-			if (currentRound == 10) {
+			if (leaderElected) {
 				this.terminated = true;
 				break;
-			} 
+			}
 			
 			// notify master that current round has ended
 			setCanStartRound(false);
@@ -122,14 +192,16 @@ public class Process implements Runnable {
 	}
 	
 	/*
-	 * Broadcasts a message to all neighbors 
+	 * Broadcasts a message to all non parent neighbors 
 	 */
 	private void broadcast(Message message) {
 		for (Channel channel : channels) {
-			sendMessage(channel.getProcess(), message);
+			if(!channel.getProcess().equals(this.parent)) {
+				sendMessage(channel.getProcess(), message);
+			}
 		}
 	}
-
+	
 	/*
 	 * Sends a message to specified neighboring process
 	 */
@@ -139,7 +211,7 @@ public class Process implements Runnable {
 		// set new delay
 		message.setTimeStamp(timeStamp);
 		//TODO: remove
-		System.out.println("SEND: [" + this.pid + " (" + currentRound + ")]" +
+		System.out.println("SEND: ["+message.getType().toString() +"] [" + this.pid + " (" + currentRound + ")]" +
 				"-> To: " + toProcess.getPid() +
 				", Time stamp: " + message.getTimeStamp());
 		toProcess.putMessage(message);
@@ -168,6 +240,8 @@ public class Process implements Runnable {
 	 * Puts the message in Channel buffer
 	 */
 	public void putMessage(Message message) {
-		getChannel(message.getPid()).add(message);
+		if(getChannel(message.getSenderId()) != null) {
+			getChannel(message.getSenderId()).add(message);
+		}
 	}
 }

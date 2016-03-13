@@ -8,14 +8,19 @@
 
 
 public class Message {
-	private int pid;
+	
 	private MessageType type;
 	private int timeStamp;
+	private int message;
+	private int latestExploreSenderParentId;
+	private int senderId;
 	
-	public Message(int pid, MessageType type, int timeStamp) {
-		this.pid = pid;
+	public Message(int message, int senderId, int latestExploreSenderParentId, MessageType type, int timeStamp) {
 		this.type = type;
 		this.timeStamp = timeStamp;
+		this.latestExploreSenderParentId = latestExploreSenderParentId;
+		this.message = message;
+		this.senderId = senderId;
 	}
 
 	public int getTimeStamp() {
@@ -26,10 +31,6 @@ public class Message {
 		this.timeStamp = timeStamp;
 	}
 
-	public int getPid() {
-		return pid;
-	}
-
 	public MessageType getType() {
 		return type;
 	}
@@ -37,6 +38,30 @@ public class Message {
 	public void setType(MessageType type) {
 		this.type = type;
 	}
-	
+
+	public int getMessage() {
+		return message;
+	}
+
+	public void setMessage(int message) {
+		this.message = message;
+	}
+
+	public int getLatestExploreSenderParentId() {
+		return latestExploreSenderParentId;
+	}
+
+	public void setLatestExploreSenderParentId(int latestExploreSenderParentId) {
+		this.latestExploreSenderParentId = latestExploreSenderParentId;
+	}
+
+	public int getSenderId() {
+		return senderId;
+	}
+
+	public void setSenderId(int senderId) {
+		this.senderId = senderId;
+	}
+
 	
 }

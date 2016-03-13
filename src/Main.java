@@ -49,7 +49,7 @@ public class Main {
 		}		
 		
 		// hard coded test values
-		n = 10;
+		n = 7;
 		
 		// random ids
 		ArrayList<Integer> list = new ArrayList<Integer>();
