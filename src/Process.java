@@ -65,8 +65,8 @@ public class Process implements Runnable {
 	public void run() {
 
 		while (true) {
-			String debugMessage = this.pid +" : "+ currentRound;
-			System.out.println(debugMessage);
+			//String debugMessage = this.pid +" : "+ currentRound;
+			//System.out.println(debugMessage);
 			// wait for confirmation from master
 			while (!isCanStartRound()) {
 				try {
@@ -75,8 +75,21 @@ public class Process implements Runnable {
 					e.printStackTrace();
 				}
 			}
+			ArrayList<Message> deliveredMessages = new ArrayList<Message>();
 			
-			
+			for (Channel channel : channels) {
+				deliveredMessages.addAll(channel.read(currentRound));
+			}
+
+			// Wait for all threads to read their current buffer values				
+		    setCanStartRound(false);	
+			while (!isCanStartRound()) {
+				try {
+					Thread.sleep(10);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}		
 			//------------------------------------------------------------------------
 			
 			/*
@@ -87,16 +100,17 @@ public class Process implements Runnable {
 			 * NOTE: Address TODOs if applicable
 			 */
 			newinfo = false;
+			
 			if(currentRound == 1) {
+				
 				Message message = new Message(this.pid, this.pid, 0, MessageType.EXPLORE, 0);
 				pendingAcks = channels.size();
 				newinfo = true;
 				broadcast(message);
+			
 			} else {
-				ArrayList<Message> deliveredMessages = new ArrayList<Message>();
-				for (Channel channel : channels) {
-					deliveredMessages.addAll(channel.read(currentRound));
-				}
+				
+				
 				
 				for (Message _message : deliveredMessages) {
 					if(_message.getType().equals(MessageType.LEADER_ANNOUNCEMENT)) {
@@ -116,14 +130,18 @@ public class Process implements Runnable {
 								this.max_seen_so_far = _message.getMessage();
 								this.parent = getChannel(_message.getSenderId()).getProcess();
 								this.ackReturned = false;
-							} 
+							}
 						}
 					}
 
 					if (newinfo) {
 						Message message = new Message(this.max_seen_so_far, this.pid,
 														this.parent.getPid(), MessageType.EXPLORE, 0);
-						this.pendingAcks = channels.size();
+						if(this.parent != null) {
+							this.pendingAcks = channels.size() - 1;
+						} else {
+							this.pendingAcks = channels.size();
+						}
 						broadcast(message);
 					}
 
@@ -163,19 +181,10 @@ public class Process implements Runnable {
 						broadcast(announcement);
 						leaderElected = true;
 					}
-				}
-				// Wait for all threads to read their current buffer values				
-			    setCanStartRound(false);		    		    		    
+				}	    		    		    
 				
 			}
 			
-			while (!isCanStartRound()) {
-				try {
-					Thread.sleep(10);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-			}		
 			 
 			//------------------------------------------------------------------------	
 			
@@ -183,6 +192,7 @@ public class Process implements Runnable {
 			
 			if (leaderElected) {
 				this.terminated = true;
+				setCanStartRound(false);
 				break;
 			}
 			
