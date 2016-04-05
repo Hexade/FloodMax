@@ -12,8 +12,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
 
 public class Main {
 	
@@ -21,16 +19,38 @@ public class Main {
 		
 		String filename = "input.dat";
 		if(args.length != 0) {
+			
 			filename = args[0];
 		}
-		String n_str = "0";
-		String ids_str = "0";
+		
+		int n;
+		int[] ids;
+		int[][] matrix;
 		
 		try {
 			File file = new File(filename);		
 			BufferedReader br = new BufferedReader(new FileReader(file));
-			n_str = br.readLine();
-			ids_str = br.readLine();
+			String n_str = br.readLine();
+			String ids_str = br.readLine();
+
+			//parse read strings to integers 
+			n = Integer.parseInt(n_str);
+			String[] id_array_str = ids_str.split(" ");
+			ids = new int[n];
+			matrix = new int[n][n];
+			
+			for (int i=0; i< n; i++) {
+				ids[i] = Integer.parseInt(id_array_str[i]);
+			} 
+			
+			for (int i=0; i< n; i++) {
+				String row_str = br.readLine();
+				String[] row = row_str.split(" ");
+				for (int j=0; j< n; j++) {
+					matrix[i][j] = Integer.parseInt(row[j]);
+				}
+			}
+			
 			br.close();
 		} catch(FileNotFoundException f) {
 			System.out.print(f.getMessage());
@@ -40,52 +60,9 @@ public class Main {
 			return;
 		}
 		
-		//parse read strings to integers 
-		Integer n = Integer.parseInt(n_str);
-		String[] id_array_str = ids_str.split(" ");
-		int[] ids = new int[n];
-		for (int i=0; i< n; i++) {
-			ids[i] = Integer.parseInt(id_array_str[i]);
-		}		
-		
-		// hard coded test values
-		n = 40;
-		
-		// random ids
-		ArrayList<Integer> list = new ArrayList<Integer>();
-		for (int i = 1; i < 1000; i++) {
-			list.add(i);
-		}
-		//Collections.shuffle(list);
-		
-		for (int i=0; i < n; i++) {
-			ids[i] = list.get(i);
-		}
 		
 		// random adjacency matrix
-		int[][] matrix = new int[n][n];
-		ArrayList<Integer> zeroOnes = new ArrayList<Integer>(n*n);
-		for (int i =0; i < (n*n)/2; ++i)
-			zeroOnes.add(0);
-		for (int i =(n*n)/2; i < (n*n); ++i)
-			zeroOnes.add(1);
-		Collections.shuffle(zeroOnes);
 		
-		int index = 0;
-		for (int i = 0; i < n; i++) {
-			for (int j = i; j < n; j++) {
-				matrix[i][j] = matrix[j][i] = zeroOnes.get(index++); 
-			}
-			matrix[i][i] = 0;
-		}
-
-		for (int i = 0; i < n; i++) {
-			for (int j = 0; j < n; j++) {
-				System.out.print(matrix[i][j]);
-			}
-			System.out.println();
-		}
-
 		// Initialize n processes		
 		Runnable[] processes = new Process[n];
 		for (int i = 0; i < processes.length; i++) {
@@ -165,5 +142,29 @@ public class Main {
 			}
 		}
 		
+	}
+	
+	public static int[][] convert(  int[] array,  int rows,  int cols ) {
+	    if (array.length != (rows*cols))
+	        throw new IllegalArgumentException("Invalid array length");
+
+	    int[][] new_arr = new int[rows][cols];
+	    for ( int i = 0; i < rows; i++ ) {
+	        System.arraycopy(array, (i*cols), new_arr[i], 0, cols);
+	    	//display(new_arr,rows); (uncomment to check output)
+		}
+    	return new_arr;
+    	
+	}
+
+
+	//extra function to display output
+	public static void display(int[][] array, int num){
+		
+		for(int i=0;i<num;i++){
+			for(int j=0;j<num;j++){
+				System.out.print(array[i][j]);
+			}
+		}
 	}
 }
