@@ -17,7 +17,7 @@ public class Main {
 	
 	public static void main(String[] args) {
 		
-		String filename = "input.dat";
+		String filename = "input_10.dat";
 		if(args.length != 0) {
 			
 			filename = args[0];

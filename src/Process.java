@@ -30,7 +30,6 @@ public class Process implements Runnable {
 	private boolean newinfo = true;
 	private boolean ackReturned = false;
 	private int grandparentid;
-	private int leader;
 	
 	public Process(int pid) {
 		this.canStartRound = false;
@@ -41,7 +40,6 @@ public class Process implements Runnable {
 		this.terminated = false;
 		this.parent = null;
 		this.max_seen_so_far = pid;
-		this.leader = pid;
 	}
 	
 	public int getPid() {
@@ -113,22 +111,23 @@ public class Process implements Runnable {
 				broadcast(message);
 			
 			} else {
-					
+				
 				for (Message _message : deliveredMessages) {
 					if(_message.getType().equals(MessageType.LEADER_ANNOUNCEMENT)) {
 						this.status = Status.NON_LEADER;
 						this.parent = getChannel(_message.getSenderId()).getProcess();
-						Message newMessage = new Message(_message);
-						newMessage.setSenderId(this.pid);
-						broadcast(newMessage);
+
+						_message.setSenderId(this.pid);
+						
+						broadcast(_message);
+						
 						leaderElected = true;
-						this.leader = _message.getMessage();
 					}			
 				}
 				
 				if(!leaderElected) {
 					for (Message _message : deliveredMessages) {
-						//TODO: remove
+
 						if(_message.getType().equals(MessageType.EXPLORE)) {
 							if(_message.getMessage() > this.max_seen_so_far) {
 								this.newinfo = true;
@@ -146,55 +145,70 @@ public class Process implements Runnable {
 
 						if(this.parent != null) {
 							this.pendingAcks = channels.size() - 1;
+
 							if(this.pendingAcks == 0) {
 								this.ackReturned = true;
 							}
+							
 						} else {
 							this.pendingAcks = channels.size();
 						}
-						broadcast(message);
+						
+						if(ackReturned && pendingAcks == 0) {
+						
+							Message ack_message = new Message(this.max_seen_so_far, this.pid,
+									grandparentid, MessageType.ACK, 0);
+							sendMessage(this.parent, ack_message);
+						
+						} else{
+							broadcast(message);
+						}
 					}
 
 					for (Message _message : deliveredMessages) {
 						
 						if(_message.getType().equals(MessageType.EXPLORE) ) {
-														
-							if(_message.getMessage() <= this.max_seen_so_far) {
-								
-								grandparentid = _message.getLatestExploreSenderParentId();
-								
-								Message reject_message = new Message(this.max_seen_so_far, this.pid,
-										grandparentid, MessageType.REJECT, 0);
-		
-								sendMessage(getChannel(_message.getSenderId()).getProcess(), reject_message);
+
+							if(!newinfo) {
+								if(_message.getMessage() <= this.max_seen_so_far) {
+
+									Message reject_message = new Message(this.max_seen_so_far, this.pid,
+											_message.getLatestExploreSenderParentId(), MessageType.REJECT, 0);
+
+									sendMessage(getChannel(_message.getSenderId()).getProcess(), reject_message);
+								}
 							} else {
-								
-								if(ackReturned && this.pendingAcks == 0) {
+								if(_message.getMessage() <= this.max_seen_so_far
+										&& _message.getSenderId() != this.parent.getPid()) {
 
-									Message ack_message = new Message(this.max_seen_so_far, this.pid,
-																grandparentid, MessageType.ACK, 0);
-									sendMessage(this.parent, ack_message);
+									Message reject_message = new Message(this.max_seen_so_far, this.pid,
+											_message.getLatestExploreSenderParentId(), MessageType.REJECT, 0);
 
+									sendMessage(getChannel(_message.getSenderId()).getProcess(), reject_message);
 								}
 							}
-													
+															
 						}
 						
 						if(_message.getType().equals(MessageType.REJECT)
 								|| _message.getType().equals(MessageType.ACK)) {
-							if(this.parent != null && this.parent.getPid() == _message.getLatestExploreSenderParentId()) {
+
+							if(this.parent != null 
+									&& this.parent.getPid() == _message.getLatestExploreSenderParentId()) {
+								
 								this.pendingAcks--;
 							} else if (this.parent == null && _message.getLatestExploreSenderParentId() == 0){
 								this.pendingAcks--;
 							}
+							
+							if  (pendingAcks == 0 
+									&& status.equals(Status.UNKNOWN) 
+									&& this.parent !=null ) {				
 
-							if  (!ackReturned && pendingAcks == 0 
-									&& status.equals(Status.UNKNOWN) && this.parent !=null) {				
-								
 								Message ack_message = new Message(this.max_seen_so_far, this.pid,
 										grandparentid, MessageType.ACK, 0);
 								sendMessage(this.parent, ack_message);
-								
+
 								this.ackReturned = true;
 							}
 						}
@@ -203,7 +217,7 @@ public class Process implements Runnable {
 					if (pendingAcks == 0 && this.parent == null && this.status.equals(Status.UNKNOWN)) {
 						this.status = Status.LEADER;
 						Message announcement = new Message(this.max_seen_so_far, this.pid, 0, MessageType.LEADER_ANNOUNCEMENT, 0);
-						System.out.println(this.pid+"---> I am the Leader ");
+						System.out.println("\n\n\n"+this.pid+"----------------------------------> I am the Leader \n\n\n");
 						broadcast(announcement);
 						leaderElected = true;
 					}
@@ -233,7 +247,8 @@ public class Process implements Runnable {
 	private void broadcast(Message message) {
 		for (Channel channel : channels) {
 			if(!channel.getProcess().equals(this.parent)) {
-				sendMessage(channel.getProcess(), message);
+				Message newmessage = new Message(message);
+				sendMessage(channel.getProcess(), newmessage);
 			}
 		}
 	}
@@ -246,9 +261,9 @@ public class Process implements Runnable {
 		int timeStamp = currentRound + rand_delay;
 		// set new delay
 		message.setTimeStamp(timeStamp);
-		//TODO: remove
+
 		System.out.println("SEND: ["+message.getType().toString() +"] [" + this.pid + " (" + currentRound + ")]" +
-				"-> To: " + toProcess.getPid() +
+				"-> To: " + toProcess.getPid() + ",  Message: "+message.getMessage()+
 				", Time stamp: " + message.getTimeStamp());
 		toProcess.putMessage(message);
 	}
