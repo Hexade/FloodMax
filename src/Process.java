@@ -219,7 +219,6 @@ public class Process implements Runnable {
 			if (leaderElected) {
 				this.terminated = true;				
 				setCanStartRound(false);
-				System.out.println("LEADER IS:--> "+leader);
 				break;
 			}
 			
