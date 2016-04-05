@@ -7,7 +7,7 @@
  * */
 
 
-public class Message {
+public class Message implements Cloneable {
 	
 	private MessageType type;
 	private int timeStamp;
@@ -63,5 +63,11 @@ public class Message {
 		this.senderId = senderId;
 	}
 
-	
+	public Message(Message another) {
+		   this.type = another.type;
+		   this.timeStamp = another.timeStamp;
+		   this.message = another.message;
+		   this.latestExploreSenderParentId = another.latestExploreSenderParentId;
+		   this.senderId = another.senderId;
+	}
 }

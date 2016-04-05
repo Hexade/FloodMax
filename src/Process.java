@@ -30,6 +30,7 @@ public class Process implements Runnable {
 	private boolean newinfo = true;
 	private boolean ackReturned = false;
 	private int grandparentid;
+	private int leader;
 	
 	public Process(int pid) {
 		this.canStartRound = false;
@@ -40,6 +41,7 @@ public class Process implements Runnable {
 		this.terminated = false;
 		this.parent = null;
 		this.max_seen_so_far = pid;
+		this.leader = pid;
 	}
 	
 	public int getPid() {
@@ -116,8 +118,11 @@ public class Process implements Runnable {
 					if(_message.getType().equals(MessageType.LEADER_ANNOUNCEMENT)) {
 						this.status = Status.NON_LEADER;
 						this.parent = getChannel(_message.getSenderId()).getProcess();
-						broadcast(_message);
+						Message newMessage = new Message(_message);
+						newMessage.setSenderId(this.pid);
+						broadcast(newMessage);
 						leaderElected = true;
+						this.leader = _message.getMessage();
 					}			
 				}
 				
@@ -212,10 +217,9 @@ public class Process implements Runnable {
 			currentRound++;
 			
 			if (leaderElected) {
-				String debugMessage = this.pid +" : "+ currentRound;
-				System.out.println(debugMessage);
-				this.terminated = true;
+				this.terminated = true;				
 				setCanStartRound(false);
+				System.out.println("LEADER IS:--> "+leader);
 				break;
 			}
 			
