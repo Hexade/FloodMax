@@ -1,5 +1,5 @@
-# dc_hs_algorithm
-Distributed Computing: Leader election in Synchronous Rings
+# FloodMax
+Distributed Computing: Simulation for Leader election in Asynchronous networks
 
 Build and run instructions
 1. Unzip the file 'uxg140230.zip'
